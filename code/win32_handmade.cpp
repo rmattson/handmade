@@ -2,6 +2,7 @@
 
 #include <windows.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <xinput.h>
 #include <dsound.h>
 
@@ -74,7 +75,7 @@ global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
 #define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter)
 typedef DIRECT_SOUND_CREATE(direct_sound_create);
 
-internal void
+    internal void
 Win32LoadXInput(void)
 {
     // Here we're going to try to do the steps the Windows loader would do
@@ -92,7 +93,7 @@ Win32LoadXInput(void)
     }
 }
 
-internal void
+    internal void
 Win32InitDSound(HWND Window, int32 SamplesPerSecond, int32 BufferSize)
 {
     // NOTE: Load the library
@@ -149,7 +150,7 @@ Win32InitDSound(HWND Window, int32 SamplesPerSecond, int32 BufferSize)
                 OutputDebugStringA("Secondary buffer created successfully.\n");
             }
             else 
-        {
+            {
 
             }
 
@@ -165,7 +166,7 @@ Win32InitDSound(HWND Window, int32 SamplesPerSecond, int32 BufferSize)
 }
 
 
-internal win32_window_dimension
+    internal win32_window_dimension
 Win32GetWindowDimension(HWND Window)
 {
     win32_window_dimension Result;
@@ -178,7 +179,7 @@ Win32GetWindowDimension(HWND Window)
     return Result;
 }
 
-internal void
+    internal void
 RenderWeirdGradient(win32_offscreen_buffer *Buffer, int XOffset, int YOffset)
 {
     // C doesn't understand void* so we need to cast this to something it can
@@ -198,7 +199,7 @@ RenderWeirdGradient(win32_offscreen_buffer *Buffer, int XOffset, int YOffset)
     }
 }
 
-internal void
+    internal void
 Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, int Height)
 {
     if (Buffer->Memory)
@@ -226,27 +227,27 @@ Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, int Height)
     //
 }
 
-internal void
+    internal void
 Win32DisplayBufferInWindow(win32_offscreen_buffer *Buffer, HDC DeviceContext,
-                           int WindowWidth, int WindowHeight, int X, int Y)
+        int WindowWidth, int WindowHeight, int X, int Y)
 {
     // TODO: Aspect ratio correction
     StretchDIBits(DeviceContext,
-                  //X, Y, Width, Height,
-                  //X, Y, Width, Height,
-                  0, 0, WindowWidth, WindowHeight,
-                  0, 0, Buffer->Width, Buffer->Height,
-                  Buffer->Memory,
-                  &Buffer->Info,
-                  DIB_RGB_COLORS,
-                  SRCCOPY);
+            //X, Y, Width, Height,
+            //X, Y, Width, Height,
+            0, 0, WindowWidth, WindowHeight,
+            0, 0, Buffer->Width, Buffer->Height,
+            Buffer->Memory,
+            &Buffer->Info,
+            DIB_RGB_COLORS,
+            SRCCOPY);
 }
 
-internal LRESULT CALLBACK
+    internal LRESULT CALLBACK
 Win32MainWindowCallback(HWND Window,
-                        UINT Message,
-                        WPARAM WParam,
-                        LPARAM LParam)
+        UINT Message,
+        WPARAM WParam,
+        LPARAM LParam)
 {
     LRESULT Result = 0;
 
@@ -378,7 +379,7 @@ struct win32_sound_output
     int LatencySampleCount;
 };
 
-internal void
+    internal void
 Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD ByteToLock, DWORD BytesToWrite)
 {
     // TODO: More strenuous test here
@@ -389,9 +390,9 @@ Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD ByteToLock, DWORD By
     DWORD Region2Size;
 
     if (SUCCEEDED(GlobalSecondaryBuffer->Lock(ByteToLock, BytesToWrite,
-                                              &Region1, &Region1Size,
-                                              &Region2, &Region2Size,
-                                              0)))
+                    &Region1, &Region1Size,
+                    &Region2, &Region2Size,
+                    0)))
     {
         // TODO: assert that Region1Size/Region2Size is valid
 
@@ -399,8 +400,8 @@ Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD ByteToLock, DWORD By
         DWORD Region1SampleCount = Region1Size/SoundOutput->BytesPerSample;
         int16 *SampleOut = (int16 *)Region1;
         for (DWORD SampleIndex = 0;
-        SampleIndex < Region1SampleCount;
-        ++SampleIndex)
+                SampleIndex < Region1SampleCount;
+                ++SampleIndex)
         {
             real32 SineValue = sinf(SoundOutput->tSine);
             int16 SampleValue = (int16)(SineValue * SoundOutput->ToneVolume);
@@ -414,8 +415,8 @@ Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD ByteToLock, DWORD By
         DWORD Region2SampleCount = Region2Size/SoundOutput->BytesPerSample;
         SampleOut = (int16 *)Region2;
         for (DWORD SampleIndex = 0;
-        SampleIndex < Region2SampleCount;
-        ++SampleIndex)
+                SampleIndex < Region2SampleCount;
+                ++SampleIndex)
         {
             real32 SineValue = sinf(SoundOutput->tSine);
             int16 SampleValue = (int16)(SineValue * SoundOutput->ToneVolume);
@@ -431,10 +432,14 @@ Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD ByteToLock, DWORD By
 }
 
 int WINAPI wWinMain(HINSTANCE Instance,
-                    HINSTANCE PrevInstance,
-                    PWSTR CommandLine,
-                    int ShowCode)
+        HINSTANCE PrevInstance,
+        PWSTR CommandLine,
+        int ShowCode)
 {
+    LARGE_INTEGER PerfCountFrequencyResult;
+    QueryPerformanceFrequency(&PerfCountFrequencyResult);
+    int64 PerfCountFrequency = PerfCountFrequencyResult.QuadPart;
+
     Win32LoadXInput();
 
     WNDCLASSA WindowClass = {};
@@ -446,21 +451,22 @@ int WINAPI wWinMain(HINSTANCE Instance,
     //WindowClass.hIcon = ;
     WindowClass.lpszClassName = "HandmadeHeroWindowClass";
 
+
     if (RegisterClass(&WindowClass))
     {
         HWND Window = CreateWindowEx(
-            0,
-            WindowClass.lpszClassName,
-            "Handmade Hero",
-            WS_OVERLAPPEDWINDOW|WS_VISIBLE,
-            CW_USEDEFAULT,
-            CW_USEDEFAULT,
-            CW_USEDEFAULT,
-            CW_USEDEFAULT,
-            0,
-            0,
-            Instance,
-            0);
+                0,
+                WindowClass.lpszClassName,
+                "Handmade Hero",
+                WS_OVERLAPPEDWINDOW|WS_VISIBLE,
+                CW_USEDEFAULT,  // x
+                CW_USEDEFAULT,  // y
+                1920,  // width
+                1080,  // height
+                0,
+                0,
+                Instance,
+                0);
         if (Window)
         {
 
@@ -486,9 +492,16 @@ int WINAPI wWinMain(HINSTANCE Instance,
             GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
             GlobalRunning = true;
+
+            LARGE_INTEGER LastCounter;
+            QueryPerformanceCounter(&LastCounter);
+            int64 LastCycleCount = __rdtsc();
+
             while (GlobalRunning)
             {
+
                 MSG Message;
+
                 while (PeekMessageA(&Message, Window, 0, 0, PM_REMOVE))
                 {
                     if (Message.message == WM_QUIT)
@@ -501,8 +514,8 @@ int WINAPI wWinMain(HINSTANCE Instance,
 
                 // TODO: Should we poll this more frequently?
                 for (DWORD ControllerIndex = 0;
-                     ControllerIndex < XUSER_MAX_COUNT;
-                     ++ControllerIndex)
+                        ControllerIndex < XUSER_MAX_COUNT;
+                        ++ControllerIndex)
                 {
                     XINPUT_STATE ControllerState;
                     if (XInputGetState(ControllerIndex, &ControllerState) == ERROR_SUCCESS)
@@ -547,10 +560,10 @@ int WINAPI wWinMain(HINSTANCE Instance,
                 if (SUCCEEDED(GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor)))
                 {
                     DWORD ByteToLock = (SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample) %
-                                        SoundOutput.SecondaryBufferSize;
+                        SoundOutput.SecondaryBufferSize;
                     DWORD TargetCursor = (PlayCursor +
-                                          (SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample)) %
-                                          SoundOutput.SecondaryBufferSize;
+                            (SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample)) %
+                        SoundOutput.SecondaryBufferSize;
                     DWORD BytesToWrite;
 
                     // TODO: Change this to using a lower latency offset from the play cursor
@@ -584,9 +597,27 @@ int WINAPI wWinMain(HINSTANCE Instance,
                 {
                     // TODO: Logging
                 }
-            }
 
-            return 0;
+                int64 EndCycleCount = __rdtsc();
+
+                LARGE_INTEGER EndCounter;
+                QueryPerformanceCounter(&EndCounter);
+
+                // TODO:  Display the value here
+                int64 CyclesElapsed = EndCycleCount - LastCycleCount;
+                int64 CounterElapsed = EndCounter.QuadPart - LastCounter.QuadPart;
+                real32 MSPerFrame = (real32)((1000.0f*(real32)CounterElapsed) / (real32)PerfCountFrequency);
+                real32 FPS = (real32)PerfCountFrequency / (real32)CounterElapsed;
+                real32 MCPF = (real32)((real32)CyclesElapsed / (1000.0f * 1000.0f));
+
+                char Buffer[256];
+                sprintf(Buffer, "%.2fms\t\t%.2fFPS\t\t%.2fmc/f\n", MSPerFrame, FPS, MCPF);
+                OutputDebugStringA(Buffer);
+
+                LastCounter = EndCounter;
+                LastCycleCount = EndCycleCount;
+            }
         }
     }
+    return 0;
 }
