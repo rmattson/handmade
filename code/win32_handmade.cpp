@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <windows.h>
 #include <xinput.h>
+#include <malloc.h>
 
 struct win32_offscreen_buffer
 {
@@ -224,9 +225,7 @@ internal void Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width,
     Buffer->Info.bmiHeader.biCompression = BI_RGB;
 
     int BitmapMemorySize = (Width * Height) * Buffer->BytesPerPixel;
-    Buffer->Memory = VirtualAlloc(0, BitmapMemorySize, MEM_RESERVE | MEM_COMMIT,
-                                  PAGE_READWRITE);
-
+    Buffer->Memory = VirtualAlloc(0, BitmapMemorySize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     Buffer->Pitch = Width * Buffer->BytesPerPixel;
 
     // TODO: Probably clear this to black
@@ -499,11 +498,9 @@ int WINAPI wWinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
             SoundOutput.ToneVolume = 2000;
             SoundOutput.RunningSampleIndex = 0;
             SoundOutput.SquareWaveCounter = 0;
-            SoundOutput.WavePeriod =
-                SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
+            SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
             SoundOutput.BytesPerSample = sizeof(int16) * 2;
-            SoundOutput.SecondaryBufferSize =
-                SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample;
+            SoundOutput.SecondaryBufferSize = SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample;
             SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 15;
 
             Win32InitDSound(Window, SoundOutput.SamplesPerSecond,
@@ -514,13 +511,15 @@ int WINAPI wWinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
 
             GlobalRunning = true;
 
+            int16 *Samples = (int16 *)VirtualAlloc(0, SoundOutput.SecondaryBufferSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+
             LARGE_INTEGER LastCounter;
             QueryPerformanceCounter(&LastCounter);
             uint64 LastCycleCount = __rdtsc();
 
             while (GlobalRunning)
             {
-
+                HDC DeviceContext = GetDC(Window);
                 MSG Message;
 
                 while (PeekMessageA(&Message, Window, 0, 0, PM_REMOVE))
@@ -566,10 +565,8 @@ int WINAPI wWinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
                         XOffset += LStickX >> 12;
                         YOffset += LStickY >> 12;
 
-                        SoundOutput.ToneHz =
-                            512 + (int)(256.0f * ((real32)LStickY / 30000.0f));
-                        SoundOutput.WavePeriod =
-                            SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
+                        SoundOutput.ToneHz = 512 + (int)(256.0f * ((real32)LStickY / 30000.0f));
+                        SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
                     }
                     else
                     {
@@ -604,7 +601,7 @@ int WINAPI wWinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
                     SoundIsValid = true;
                 }
 
-                int16 Samples[48000 * 2];
+                /*int16 *Samples = (int16 *)_alloca(48000 * 2 * sizeof(int16));*/
                 game_sound_output_buffer SoundBuffer = {};
                 SoundBuffer.SamplesPerSecond = SoundOutput.SamplesPerSecond;
                 SoundBuffer.SampleCount = BytesToWrite / SoundOutput.BytesPerSample;
@@ -615,26 +612,20 @@ int WINAPI wWinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
                 Buffer.Width = GlobalBackbuffer.Width;
                 Buffer.Height = GlobalBackbuffer.Height;
                 Buffer.Pitch = GlobalBackbuffer.Pitch;
-                GameUpdateAndRender(&Buffer, XOffset, YOffset, &SoundBuffer);
+                GameUpdateAndRender(&Buffer, XOffset, YOffset, &SoundBuffer, SoundOutput.ToneHz);
 
                 if (SoundIsValid)
                 {
                     Win32FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
-
-
-                    HDC DeviceContext = GetDC(Window);
-                    win32_window_dimension Dimension = Win32GetWindowDimension(Window);
-                    Win32DisplayBufferInWindow(&GlobalBackbuffer, DeviceContext,
-                                               Dimension.Width, Dimension.Height, 0, 0);
-                    ReleaseDC(Window, DeviceContext);
-
-                    --XOffset;
-                    //++YOffset;
                 }
-                else
-                {
-                    // TODO: Logging
-                }
+
+                win32_window_dimension Dimension = Win32GetWindowDimension(Window);
+                Win32DisplayBufferInWindow(&GlobalBackbuffer, DeviceContext,
+                                           Dimension.Width, Dimension.Height, 0, 0);
+                ReleaseDC(Window, DeviceContext);
+
+                --XOffset;
+                //++YOffset;
 
                 uint64 EndCycleCount = __rdtsc();
 
